@@ -87,7 +87,7 @@ async function customersDisplay(sortType = "") {
   try {
     box = ``;
     element.forEach((element) => {
-      box +=`
+      box += `
         <tr>
           <td>${element.sortId}</td>
           <td class="text-capitalize">${element.sortName}</td>
@@ -108,12 +108,15 @@ async function customersDisplay(sortType = "") {
 }
 async function fetchCustomersData() {
   try {
-    const api = await fetch("http://localhost:3000/customers");
+    const api = await fetch(
+      "https://ahmedwessamtest.github.io/transaction-app/customers.json"
+    );
     if (!api.ok) {
       throw new Error(`HTTP error! status: ${api.status}`);
     }
-
-    return await api.json();
+    const response = await api.json();
+    const short = response.customers;
+    return await short;
   } catch (error) {
     console.error("Error fetching customer data:", error);
     throw error;
@@ -122,12 +125,16 @@ async function fetchCustomersData() {
 
 async function fetchTransactionData() {
   try {
-    const api = await fetch("http://localhost:3000/transactions");
+    const api = await fetch(
+      "https://ahmedwessamtest.github.io/transaction-app/transactions.json"
+    );
     if (!api.ok) {
       throw new Error(`HTTP error! status: ${api.status}`);
     }
 
-    return await api.json();
+    const response = await api.json();
+    const short = response.transactions;
+    return await short;
   } catch (error) {
     console.error("Error fetching transactions data:", error);
     throw error;

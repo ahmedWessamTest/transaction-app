@@ -1,13 +1,20 @@
-// ==== global ====
+// ==== Global Variables ====
 const $loading = $("#loading");
 const $detailsTable = $("#detailsTable");
-// // ==== when start ====
+
+// ==== Initialization ====
 init();
-// ==== events ====
-// ==== functions ====
+
+// ==== Functions ====
 async function init() {
   toggleLoading(true);
   await customersDisplay();
+  setupEventListeners();
+  filterSelector();
+  toggleLoading(false);
+}
+
+function setupEventListeners() {
   $(".tableBtn").on("click", async (event) => {
     toggleLoading(true);
     const userId = event.target.dataset.id;
@@ -17,9 +24,8 @@ async function init() {
     closeBtn();
     toggleLoading(false);
   });
-  filterSelector();
-  toggleLoading(false);
 }
+
 function filterSelector() {
   $("#filterInput").on("change", async (event) => {
     const value = event.target.value;
@@ -27,6 +33,7 @@ function filterSelector() {
     await customersDisplay(value);
   });
 }
+
 function closeBtn() {
   $("#prevBtn").on("click", () => {
     sectionNavigator("customersSection");
@@ -34,6 +41,7 @@ function closeBtn() {
     $("#chart").html("");
   });
 }
+
 async function makeCustomerObject() {
   const customersResponse = await fetchCustomersData();
   const transactionsResponse = await fetchTransactionData();
@@ -56,6 +64,7 @@ async function makeCustomerObject() {
   });
   return sortData;
 }
+
 function dynamicSort(property) {
   let sortOrder = 1;
   if (property[0] === "-") {
@@ -74,7 +83,6 @@ async function filterData(filterType) {
   switch (filterType) {
     case "sortName":
       return customerObject.sort(dynamicSort("sortName"));
-      break;
     case "sortAmount":
       return customerObject.sort(dynamicSort("sortAmount"));
     default:
@@ -85,7 +93,7 @@ async function filterData(filterType) {
 async function customersDisplay(sortType = "") {
   const element = await filterData(sortType);
   try {
-    box = ``;
+    let box = ``;
     element.forEach((element) => {
       box += `
         <tr>
@@ -102,21 +110,20 @@ async function customersDisplay(sortType = "") {
       `;
     });
     $("#customersBody").html(box);
+    setupEventListeners(); // Re-attach event listeners after DOM update
   } catch (error) {
-    console.error("Error display customers data:", error);
+    console.error("Error displaying customers data:", error);
   }
 }
+
 async function fetchCustomersData() {
   try {
-    const api = await fetch(
+    const response = await fetch(
       "https://ahmedwessamtest.github.io/transaction-app/customers.json"
     );
-    if (!api.ok) {
-      throw new Error(`HTTP error! status: ${api.status}`);
-    }
-    const response = await api.json();
-    const short = response.customers;
-    return await short;
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    return data.customers;
   } catch (error) {
     console.error("Error fetching customer data:", error);
     throw error;
@@ -125,16 +132,12 @@ async function fetchCustomersData() {
 
 async function fetchTransactionData() {
   try {
-    const api = await fetch(
+    const response = await fetch(
       "https://ahmedwessamtest.github.io/transaction-app/transactions.json"
     );
-    if (!api.ok) {
-      throw new Error(`HTTP error! status: ${api.status}`);
-    }
-
-    const response = await api.json();
-    const short = response.transactions;
-    return await short;
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    return data.transactions;
   } catch (error) {
     console.error("Error fetching transactions data:", error);
     throw error;
@@ -143,55 +146,48 @@ async function fetchTransactionData() {
 
 async function fetchCustomerDetails(customerId) {
   try {
-    const api = await fetch(
-      `http://localhost:3000/transactions?customer_id=${customerId}`
-    );
-    if (!api.ok) {
-      throw new Error(`HTTP error! status: ${api.status}`);
-    }
-
-    return await api.json();
+    const transactions = await fetchTransactionData();
+    return transactions.filter((t) => t.customer_id == customerId);
   } catch (error) {
     console.error("Error fetching customer details data:", error);
     throw error;
   }
 }
+
 async function displayCustomerData(customerId) {
   try {
     const detailsResponse = await fetchCustomerDetails(customerId);
     let box = ``;
     detailsResponse.forEach((element) => {
       box += `
-            <tr>
-                <td>${element.id}</td>
-                <td class="text-capitalize">${element.date}</td>
-                <td>${element.amount}</td>
-            </tr>
-            `;
+        <tr>
+            <td>${element.id}</td>
+            <td class="text-capitalize">${element.date}</td>
+            <td>${element.amount}</td>
+        </tr>
+      `;
     });
-
     $detailsTable.html(box);
   } catch (error) {
-    console.error("Error display customer display data: ", error);
+    console.error("Error displaying customer data: ", error);
   }
 }
+
 function sectionNavigator(section) {
   $("section").hide(0);
   $(`#${section}`).show(0);
 }
+
 async function fetchCustomerName(customerId) {
   try {
-    const api = await fetch(`http://localhost:3000/customers?id=${customerId}`);
-    if (!api.ok) {
-      throw new Error(`HTTP error! status: ${api.status}`);
-    }
-
-    return await api.json();
+    const customers = await fetchCustomersData();
+    return customers.filter((customer) => customer.id == customerId);
   } catch (error) {
     console.error("Error fetching customer name data:", error);
     throw error;
   }
 }
+
 async function displayChart(customerId) {
   const detailsResponse = await fetchCustomerDetails(customerId);
   const userName = await fetchCustomerName(detailsResponse[0].customer_id);
@@ -203,7 +199,7 @@ async function displayChart(customerId) {
     series: [
       {
         name: "Transactions",
-        data: [...userDetails],
+        data: userDetails,
       },
     ],
     chart: {
@@ -245,6 +241,7 @@ async function displayChart(customerId) {
   const chart = new ApexCharts(document.querySelector("#chart"), options);
   chart.render();
 }
+
 function toggleLoading(show) {
   $loading.toggle(show);
 }

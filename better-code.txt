@@ -1,0 +1,178 @@
+// ==== global ====
+const $loading = $("#loading");
+const $detailsTable = $("#detailsTable");
+
+// ==== when start ====
+init();
+
+// ==== events ====
+
+// ==== functions ====
+async function init() {
+  toggleLoading(true);
+  await displayCustomers();
+  $(".tableBtn").on("click", async (event) => {
+    toggleLoading(true);
+    const userId = event.target.dataset.id;
+    await displayCustomerData(userId);
+    await displayChart(userId);
+    sectionNavigator("customerDetails");
+    closeBtn();
+    toggleLoading(false);
+  });
+  setupFilter();
+  toggleLoading(false);
+}
+
+function setupFilter() {
+  $("#filterInput").on('change', async (event) => {
+    const value = event.target.value;
+    await displayCustomers(value);
+  });
+}
+
+function closeBtn() {
+  $("#prevBtn").on("click", () => {
+    sectionNavigator("customersSection");
+    $detailsTable.html("");
+    $("#chart").html("");
+  });
+}
+
+async function makeCustomerObject() {
+  const [customersResponse, transactionsResponse] = await Promise.all([fetchCustomersData(), fetchTransactionData()]);
+  return customersResponse.map((customer) => {
+    const customerTransactions = transactionsResponse.filter(t => t.customer_id === customer.id);
+    const transactionsNumber = customerTransactions.length;
+    const transactionsAmount = customerTransactions.reduce((sum, t) => sum + t.amount, 0);
+    return {
+      sortId: customer.id,
+      sortName: customer.name,
+      sortAmount: transactionsAmount,
+      sortTransaction: transactionsNumber,
+    };
+  });
+}
+
+function dynamicSort(property) {
+  let sortOrder = 1;
+  if (property[0] === "-") {
+    sortOrder = -1;
+    property = property.substr(1);
+  }
+  return (a, b) => (a[property] < b[property] ? -1 : a[property] > b[property] ? 1 : 0) * sortOrder;
+}
+
+async function filterData(filterType) {
+  const customerObject = await makeCustomerObject();
+  switch (filterType) {
+    case "sortName":
+      return customerObject.sort(dynamicSort("sortName"));
+    case "sortAmount":
+      return customerObject.sort(dynamicSort("sortAmount"));
+    default:
+      return customerObject;
+  }
+}
+
+async function displayCustomers(sortType = "") {
+  try {
+    const customers = await filterData(sortType);
+    const rows = customers.map(customer => `
+      <tr>
+        <td>${customer.sortId}</td>
+        <td class="text-capitalize">${customer.sortName}</td>
+        <td>${customer.sortAmount}</td>
+        <td>${customer.sortTransaction}</td>
+        <td><button data-id="${customer.sortId}" class="btn tableBtn">view</button></td>
+      </tr>
+    `).join('');
+    $("#customersBody").html(rows);
+  } catch (error) {
+    console.error("Error displaying customers data:", error);
+  }
+}
+
+async function fetchCustomersData() {
+  return fetchData("http://localhost:3000/customers");
+}
+
+async function fetchTransactionData() {
+  return fetchData("http://localhost:3000/transactions");
+}
+
+async function fetchCustomerDetails(customerId) {
+  return fetchData(`http://localhost:3000/transactions?customer_id=${customerId}`);
+}
+
+async function fetchCustomerName(customerId) {
+  return fetchData(`http://localhost:3000/customers?id=${customerId}`);
+}
+
+async function fetchData(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching data from ${url}:`, error);
+    throw error;
+  }
+}
+
+async function displayCustomerData(customerId) {
+  try {
+    const detailsResponse = await fetchCustomerDetails(customerId);
+    const rows = detailsResponse.map(element => `
+      <tr>
+        <td>${element.id}</td>
+        <td class="text-capitalize">${element.date}</td>
+        <td>${element.amount}</td>
+      </tr>
+    `).join('');
+    $detailsTable.html(rows);
+  } catch (error) {
+    console.error("Error displaying customer data: ", error);
+  }
+}
+
+function sectionNavigator(section) {
+  $("section").hide();
+  $(`#${section}`).show();
+}
+
+async function displayChart(customerId) {
+  try {
+    const detailsResponse = await fetchCustomerDetails(customerId);
+    const [customer] = await fetchCustomerName(detailsResponse[0].customer_id);
+    const userDetails = detailsResponse.map(({ date, amount }) => ({ x: new Date(date), y: amount }));
+
+    const options = {
+      series: [{ name: "Transactions", data: userDetails }],
+      chart: {
+        height: 350,
+        type: "area",
+        toolbar: { show: false },
+      },
+      title: {
+        text: `Transactions for ${customer.name}`,
+        align: "left",
+        style: { fontSize: "18px", fontWeight: "bold", color: "#263238", fontFamily: "Poppins, sans-serif" },
+      },
+      dataLabels: { enabled: false },
+      stroke: { curve: "smooth" },
+      markers: { size: 0 },
+      xaxis: { type: "datetime" },
+      tooltip: { x: { format: "dd/MM/yy" } },
+    };
+
+    const chart = new ApexCharts(document.querySelector("#chart"), options);
+    chart.render();
+  } catch (error) {
+    console.error("Error displaying chart: ", error);
+  }
+}
+
+function toggleLoading(show) {
+  $loading.toggle(show);
+}

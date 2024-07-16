@@ -110,7 +110,7 @@ async function customersDisplay(sortType = "") {
       `;
     });
     $("#customersBody").html(box);
-    setupEventListeners(); // Re-attach event listeners after DOM update
+    setupEventListeners();
   } catch (error) {
     console.error("Error displaying customers data:", error);
   }
